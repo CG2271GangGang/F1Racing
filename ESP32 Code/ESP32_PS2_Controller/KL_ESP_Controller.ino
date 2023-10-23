@@ -238,8 +238,8 @@ void loop()
 
       if (ps2x.Button(PSB_R2)){ // Drift
         Serial.println("R2 pressed, drifting right");
-        // right 1/2 speed
-        rightScaledValue = rightScaledValue / 2;
+        // right 1/4 speed
+        rightScaledValue = rightScaledValue / 4;
       }
       else if (ps2x.Button(PSB_R1)){ // Cap speed
         rightScaledValue = rightScaledValue / 3;
