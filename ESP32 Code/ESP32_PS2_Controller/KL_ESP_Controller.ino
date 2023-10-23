@@ -106,7 +106,7 @@ void loop()
       Serial.println(rightJoystickX);
 
       int forwardSpeed = leftJoystickY - 128;  // This will give us a range from -128 to 127.
-      int turningValue = rightJoystickX - 128; // Same range, negative for left turn, positive for right.
+      int turningValue = rightJoystickX - 127; // Same range, negative for left turn, positive for right.
 
       int leftMotorSpeed, rightMotorSpeed;
 
