@@ -146,7 +146,45 @@ void loop()
         rightDataPacket |= 0b10 << 0;
       }
       rightDataPacket |= (uint8_t)((rightMotorSpeed / 127.0) * 63) << 2;
+
+      /* Drift */
+      if(ps2x.Button(PSB_L2)){ 
+        Serial.println("L2 pressed, drifting left");
+        // left half speed of right
+        leftDataPacket = 0b00011101;
+        rightDataPacket = 0b11111101;
       }
+      else if(ps2x.Button(PSB_R2)){
+        Serial.println("R2 pressed, drifting right");
+        // right half speed of left
+        leftDataPacket = 0b11111101;
+        rightDataPacket = 0b00011101;
+      }
+
+      /* Cap speed */
+      if (ps2x.Button(PSB_L1) && ps2x.Button(PSB_R1)){
+        Serial.println("L1 & R1 pressed, capping at 50% speed");
+        // bitshift right by 2 for index 2-7
+        // Create a bit mask to isolate bits 2 to 7
+        unsigned char mask = 0b11111100;
+
+        // Extract the bits within the range (bits 2 to 7)
+        unsigned char extractedLeftBits = (leftDataPacket & mask) >> 2;
+        unsigned char extractedRightBits = (rightDataPacket & mask) >> 2;
+
+        // Perform the right bit shift operation
+        unsigned char shiftedLeftBits = extractedLeftBits >> 1;
+        unsigned char shiftedRightBits = extractedRightBits >> 1;
+
+        // Clear the original bits 2 to 7 in the data packet
+        leftDataPacket &= ~mask;
+        rightDataPacket &= ~mask;
+
+        // Combine the shifted bits with the original data packet
+        leftDataPacket |= (shiftedLeftBits << 2);
+        rightDataPacket |= (shiftedRightBits << 2);
+      }
+    }
     else{
       /* Tank Drive */
       int leftJoystickY = ps2x.Analog(PSS_LY);
@@ -171,7 +209,15 @@ void loop()
       } else if (leftJoystickY >= 129 && leftJoystickY <= 255){
         leftScaledValue = (uint8_t)(((leftJoystickY - 128) / 127.0) * 63);
       }
-
+      
+      if (ps2x.Button(PSB_L2)){ // Drift
+        Serial.println("L2 pressed, drifting left");
+        // left 1/4 speed
+        leftScaledValue = leftScaledValue / 4;
+      }
+      else if (ps2x.Button(PSB_L1)){ // Cap speed
+        leftScaledValue = leftScaledValue / 3;
+      }
       leftDataPacket |= leftScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the leftDataPacket byte.
 
       // Process the right joystick Y value (similar to left joystick)
@@ -189,47 +235,19 @@ void loop()
       } else if (rightJoystickY >= 129 && rightJoystickY <= 255) {
         rightScaledValue = (uint8_t)(((rightJoystickY - 128) / 127.0) * 63);
       }
+
+      if (ps2x.Button(PSB_R2)){ // Drift
+        Serial.println("R2 pressed, drifting right");
+        // right 1/2 speed
+        rightScaledValue = rightScaledValue / 2;
+      }
+      else if (ps2x.Button(PSB_R1)){ // Cap speed
+        rightScaledValue = rightScaledValue / 3;
+      }
       rightDataPacket |= rightScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the rightDataPacket byte.
     }
 
-    /* Drift */
-    if(ps2x.Button(PSB_L2)){ 
-        Serial.println("L2 pressed, drifting left");
-        // left half speed of right
-        leftDataPacket = 0b00011101;
-        rightDataPacket = 0b11111101;
-    }
-    else if(ps2x.Button(PSB_R2)){
-        Serial.println("R2 pressed, drifting right");
-        // right half speed of left
-        leftDataPacket = 0b11111101;
-        rightDataPacket = 0b00011101;
-    }
-
-    /* Cap speed */
-    if (ps2x.Button(PSB_L1) && ps2x.Button(PSB_R1)){
-        Serial.println("L1 & R1 pressed, capping at 50% speed");
-        // bitshift right by 2 for index 2-7
-        // Create a bit mask to isolate bits 2 to 7
-        unsigned char mask = 0b11111100;
-
-        // Extract the bits within the range (bits 2 to 7)
-        unsigned char extractedLeftBits = (leftDataPacket & mask) >> 2;
-        unsigned char extractedRightBits = (rightDataPacket & mask) >> 2;
-
-        // Perform the right bit shift operation
-        unsigned char shiftedLeftBits = extractedLeftBits >> 2;
-        unsigned char shiftedRightBits = extractedRightBits >> 2;
-
-        // Clear the original bits 2 to 7 in the data packet
-        leftDataPacket &= ~mask;
-        rightDataPacket &= ~mask;
-
-        // Combine the shifted bits with the original data packet
-        leftDataPacket |= (shiftedLeftBits << 2);
-        rightDataPacket |= (shiftedRightBits << 2);
-    }
-
+    
     /*Ending Music -Activate when Square pressed OR released */
     if(ps2x.NewButtonState(PSB_SQUARE))      {
       Serial.println("Square just released");     
