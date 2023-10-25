@@ -88,90 +88,87 @@ void loop()
     uint8_t endByte = 0b01111111;   // End byte with LSB '11'
 
     if (ps2x.ButtonPressed(PSB_CIRCLE)) {
-      isArcadeDrive = !isArcadeDrive;  // Toggle between arcade and tank drive by pressing circle button
+        isArcadeDrive = !isArcadeDrive;  // Toggle between arcade and tank drive by pressing circle button
     }
 
     if (isArcadeDrive) {
-      /* Arcade Drive */
-      Serial.print("Arcade Drive: ");
-      int leftJoystickY = ps2x.Analog(PSS_LY);
-      int rightJoystickX = ps2x.Analog(PSS_RX);
-      Serial.print(leftJoystickY);
-      Serial.print(",");
-      Serial.println(rightJoystickX);
+        /* Arcade Drive */
+        Serial.print("Arcade Drive: ");
+        int leftJoystickY = ps2x.Analog(PSS_LY);
+        int rightJoystickX = ps2x.Analog(PSS_RX);
+        Serial.print(leftJoystickY);
+        Serial.print(",");
+        Serial.println(rightJoystickX);
 
-      int forwardSpeed = leftJoystickY - 128;  // This will give us a range from -128 to 127.
-      int turningValue = rightJoystickX - 127; // Same range, negative for left turn, positive for right.
+        int forwardSpeed = leftJoystickY - 128;  // This will give us a range from -128 to 127.
+        int turningValue = rightJoystickX - 127; // Same range, negative for left turn, positive for right.
 
-      int leftMotorSpeed, rightMotorSpeed;
+        int leftMotorSpeed, rightMotorSpeed;
 
-      if (turningValue < 0) { // Turning left
-          leftMotorSpeed = constrain(forwardSpeed + abs(turningValue), -127, 127);  // Decrease left motor speed
-          rightMotorSpeed = constrain(forwardSpeed - abs(turningValue), -127, 127); // Increase right motor speed
-      } else if(turningValue > 0) { // Turning right
-          leftMotorSpeed = constrain(forwardSpeed - turningValue, -127, 127); 
-          rightMotorSpeed = constrain(forwardSpeed + turningValue, -127, 127); 
-      } else{ // not moving
-          leftMotorSpeed = constrain(forwardSpeed, -127, 127); 
-          rightMotorSpeed = constrain(forwardSpeed, -127, 127); 
-      }
+        if (turningValue < 0) { // Turning left
+        leftMotorSpeed = constrain(forwardSpeed + abs(turningValue), -127, 127);  // Decrease left motor speed
+        rightMotorSpeed = constrain(forwardSpeed - abs(turningValue), -127, 127); // Increase right motor speed
+        } else if(turningValue > 0) { // Turning right
+        leftMotorSpeed = constrain(forwardSpeed - turningValue, -127, 127); 
+        rightMotorSpeed = constrain(forwardSpeed + turningValue, -127, 127); 
+        } else{ // not moving
+        leftMotorSpeed = constrain(forwardSpeed, -127, 127); 
+        rightMotorSpeed = constrain(forwardSpeed, -127, 127); 
+        }
 
-      if (forwardSpeed > 0){
+        if (forwardSpeed > 0){
         // going backwards, swap out left and right such that it reverses in the natural direction
         std::swap(leftMotorSpeed, rightMotorSpeed);
-      }
+        }
 
-      if (ps2x.Button(PSB_L2)) {
+
+        if (ps2x.Button(PSB_L2)) {
         Serial.println("L2 pressed, capping left to speed 1");
         leftMotorSpeed = 1;
-      }
-      if (ps2x.Button(PSB_R2)){
+        }
+        if (ps2x.Button(PSB_R2)){
         Serial.println("R2 pressed, capping right to speed 1");
         rightMotorSpeed = 1;
-      }
+        }
+        if (ps2x.Button(PSB_L1)) {
+        Serial.println("L1 pressed, capping left to half speed");
+        leftMotorSpeed = leftMotorSpeed / 5;
+        }
+        if (ps2x.Button(PSB_R1)){
+        Serial.println("R1 pressed, capping right to half speed");
+        rightMotorSpeed = rightMotorSpeed / 5;
+        }
 
-      // Process the left motor speed
-      if (leftMotorSpeed == 0) {
+
+        // Process the left motor speed
+        if (leftMotorSpeed == 0)
+        {
         leftDataPacket |= 0b00 << 0;
-      } else if (leftMotorSpeed < 0) {
+        } else if (leftMotorSpeed < 0) {
         // go forward
         leftDataPacket |= 0b01 << 0;
         leftMotorSpeed = abs(leftMotorSpeed);  // Convert to positive for leftDataPacket.
-      } else {
-      // go backward
+        } else {
+        // go backward
         leftDataPacket |= 0b10 << 0;
-      }
-      leftDataPacket |= (uint8_t)((leftMotorSpeed / 127.0) * 63) << 2;
+        }
+        leftDataPacket |= (uint8_t)((leftMotorSpeed / 127.0) * 63) << 2;
 
-      // Process the right motor speed
-      if (rightMotorSpeed == 0) {
+        // Process the right motor speed
+        if (rightMotorSpeed == 0) {
         rightDataPacket |= 0b00 << 0;
-      } else if (rightMotorSpeed < 0) {
+        } else if (rightMotorSpeed < 0) {
         // go forward
         rightDataPacket |= 0b01 << 0;
         rightMotorSpeed = abs(rightMotorSpeed);  // Convert to positive for rightDataPacket.
-      } else {
+        } else {
         // go backward
         rightDataPacket |= 0b10 << 0;
-      }
-      rightDataPacket |= (uint8_t)((rightMotorSpeed / 127.0) * 63) << 2;
+        }
+        rightDataPacket |= (uint8_t)((rightMotorSpeed / 127.0) * 63) << 2;
 
-      /* Drift */
-      if(ps2x.Button(PSB_L2)){ 
-        Serial.println("L2 pressed, drifting left");
-        // left half speed of right
-        leftDataPacket = 0b00000101;
-        rightDataPacket = 0b11111101;
-      }
-      else if(ps2x.Button(PSB_R2)){
-        Serial.println("R2 pressed, drifting right");
-        // right half speed of left
-        leftDataPacket = 0b11111101;
-        rightDataPacket = 0b00000101;
-      }
-
-      /* Cap speed */
-      if (ps2x.Button(PSB_L1) && ps2x.Button(PSB_R1)){
+        /* Cap speed */
+        if (ps2x.Button(PSB_L1) && ps2x.Button(PSB_R1)){
         Serial.println("L1 & R1 pressed, capping at 50% speed");
         // bitshift right by 2 for index 2-7
         // Create a bit mask to isolate bits 2 to 7
@@ -192,71 +189,71 @@ void loop()
         // Combine the shifted bits with the original data packet
         leftDataPacket |= (shiftedLeftBits << 2);
         rightDataPacket |= (shiftedRightBits << 2);
-      }
-    }
-    
-    /* Tank Drive */
+        }
+        }
 
-    else{
-      int leftJoystickY = ps2x.Analog(PSS_LY);
-      int rightJoystickY = ps2x.Analog(PSS_RY);
-      Serial.print("Tank Drive: ");
-      Serial.print(leftJoystickY);
-      Serial.print(",");
-      Serial.println(rightJoystickY);
+        /* Tank Drive */
 
-      // Process the left joystick Y value
-      if (leftJoystickY == 128){
+        else{
+        int leftJoystickY = ps2x.Analog(PSS_LY);
+        int rightJoystickY = ps2x.Analog(PSS_RY);
+        Serial.print("Tank Drive: ");
+        Serial.print(leftJoystickY);
+        Serial.print(",");
+        Serial.println(rightJoystickY);
+
+        // Process the left joystick Y value
+        if (leftJoystickY == 128){
         leftDataPacket |= 0b00 << 0; // Set bits 0 and 1 to '00'
-      }else if (leftJoystickY >= 0 && leftJoystickY <= 127){
+        }else if (leftJoystickY >= 0 && leftJoystickY <= 127){
         leftDataPacket |= 0b01 << 0; // Set bits 0 and 1 to '01'
-      }else if (leftJoystickY >= 129 && leftJoystickY <= 255){
+        }else if (leftJoystickY >= 129 && leftJoystickY <= 255){
         leftDataPacket |= 0b10 << 0; // Set bits 0 and 1 to '10'
-      }
+        }
 
-      uint8_t leftScaledValue = 0;
-      if (leftJoystickY >= 0 && leftJoystickY <= 127){
+        uint8_t leftScaledValue = 0;
+        if (leftJoystickY >= 0 && leftJoystickY <= 127){
         leftScaledValue = (uint8_t)(((128.0 - leftJoystickY) / 128.0) * 63);
-      } else if (leftJoystickY >= 129 && leftJoystickY <= 255){
+        } else if (leftJoystickY >= 129 && leftJoystickY <= 255){
         leftScaledValue = (uint8_t)(((leftJoystickY - 128) / 127.0) * 63);
-      }
-      
-      if (ps2x.Button(PSB_L2)){ // Cap Left Motor speed to minimum moving
+        }
+
+        if (ps2x.Button(PSB_L2)){ // Cap Left Motor speed to minimum moving
         Serial.println("L2 pressed, drifting left");
         // left 1/10 speed
         leftScaledValue = 1;
-      }
-      else if (ps2x.Button(PSB_L1)){ // Cap speed to half
+        }
+        else if (ps2x.Button(PSB_L1)){ // Cap speed to half
         leftScaledValue = leftScaledValue / 5;
-      }
-      leftDataPacket |= leftScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the leftDataPacket byte.
+        }
+        leftDataPacket |= leftScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the leftDataPacket byte.
 
-      // Process the right joystick Y value (similar to left joystick)
-      if (rightJoystickY == 128){
+        // Process the right joystick Y value (similar to left joystick)
+        if (rightJoystickY == 128){
         rightDataPacket |= 0b00 << 0;
-      } else if (rightJoystickY >= 0 && rightJoystickY <= 127){
+        } else if (rightJoystickY >= 0 && rightJoystickY <= 127){
         rightDataPacket |= 0b01 << 0;
-      } else if (rightJoystickY >= 129 && rightJoystickY <= 255){
+        } else if (rightJoystickY >= 129 && rightJoystickY <= 255){
         rightDataPacket |= 0b10 << 0;
-      }
+        }
 
-      uint8_t rightScaledValue = 0;
-      if (rightJoystickY >= 0 && rightJoystickY <= 127){
+        uint8_t rightScaledValue = 0;
+        if (rightJoystickY >= 0 && rightJoystickY <= 127){
         rightScaledValue = (uint8_t)(((128.0 - rightJoystickY) / 128.0) * 63);
-      } else if (rightJoystickY >= 129 && rightJoystickY <= 255) {
+        } else if (rightJoystickY >= 129 && rightJoystickY <= 255) {
         rightScaledValue = (uint8_t)(((rightJoystickY - 128) / 127.0) * 63);
-      }
+        }
 
-      if (ps2x.Button(PSB_R2)){ // Cap Right motor speed to minimum moving
+        if (ps2x.Button(PSB_R2)){ // Cap Right motor speed to minimum moving
         Serial.println("R2 pressed, drifting right");
         // right 1/10 speed
         rightScaledValue = 1;
-      }
-      else if (ps2x.Button(PSB_R1)){ // Cap speed to half
+        }
+        else if (ps2x.Button(PSB_R1)){ // Cap speed to half
         rightScaledValue = rightScaledValue / 5;
-      }
-      rightDataPacket |= rightScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the rightDataPacket byte.
-    }
+        }
+        rightDataPacket |= rightScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the rightDataPacket byte.
+        }
 
     
     /*Ending Music -Activate when Square pressed OR released */
@@ -291,3 +288,32 @@ void loop()
     // Add a delay or adjust timing based on your application requirements
     // delay(500);
 }
+
+
+
+
+uint8_t generateDataPacket(int joystickValue, bool isLeftJoystick) {
+    uint8_t dataPacket = 0;
+    int scaledValue = 0;
+    if (joystickValue == 128) {
+        dataPacket |= 0b00 << 0;
+    } else if (joystickValue < 128) {
+        dataPacket |= 0b01 << 0;
+        scaledValue = (uint8_t)((128.0 - joystickValue) / 128.0 * 63);
+    } else {
+        dataPacket |= 0b10 << 0;
+        scaledValue = (uint8_t)((joystickValue - 128) / 127.0 * 63);
+    }
+    dataPacket |= scaledValue << 2;
+
+    if ((isLeftJoystick && ps2x.Button(PSB_L2)) || (!isLeftJoystick && ps2x.Button(PSB_R2))) {
+        scaledValue = 1;
+    }
+    else if ((isLeftJoystick && ps2x.Button(PSB_L1)) || (!isLeftJoystick && ps2x.Button(PSB_R1))) {
+        scaledValue /= 5;
+    }
+    dataPacket |= scaledValue << 2;
+    return dataPacket;
+}
+
+
