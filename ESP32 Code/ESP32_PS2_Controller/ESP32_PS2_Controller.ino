@@ -98,10 +98,16 @@ void loop()
         handleTankDrive(leftDataPacket, rightDataPacket);
     }
 
-    /* Play Music */
+    /* Play Ending Music */
     if (ps2x.NewButtonState(PSB_SQUARE)) {
         leftDataPacket = 0b00101011;
         rightDataPacket = 0b00101011;
+    }
+
+    /*Play Melody Music */
+    if (ps2x.NewButtonState(PSB_TRIANGLE)){
+        leftDataPacket = 0x8b;
+        rightDataPacket = 0x8b;
     }
 
     sendPayload(leftDataPacket, rightDataPacket);
