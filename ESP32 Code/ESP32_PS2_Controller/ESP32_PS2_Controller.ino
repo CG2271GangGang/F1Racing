@@ -35,7 +35,7 @@
  * DEBUG mode
  * Uncomment to enable debug mode
  */
-// #define DEBUG
+#define DEBUG
 
 // Create a UART object
 HardwareSerial SerialKL25(0); // UART0 on the ESP32
@@ -108,7 +108,7 @@ void loop()
 }
 
 
-
+/*const uint8_t : leftDataPacket and rightDataPacket is sent by value, and unable to be edited within sendPayload*/
 void sendPayload(const uint8_t leftDataPacket, const uint8_t rightDataPacket) {
     uint8_t payload[4];
     payload[0] = 0b00000011;
@@ -140,24 +140,38 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
     Serial.println(rightJoystickX);
     #endif
 
-    int forwardSpeed = leftJoystickY - 128;  // This will give us a range from -128 to 127.
-    int turningValue = rightJoystickX - 127; // Same range, negative for left turn, positive for right.
+    int forwardSpeed = 127 - ps2x.Analog(PSS_LY); // Forward/backward value
+    int turningValue = ps2x.Analog(PSS_RX) - 127; // Turning value
 
     int leftMotorSpeed, rightMotorSpeed;
 
-    if (turningValue < 0){ // Turning left
-        leftMotorSpeed = constrain(forwardSpeed + abs(turningValue), -127, 127);  // Decrease left motor speed
-        rightMotorSpeed = constrain(forwardSpeed - abs(turningValue), -127, 127); // Increase right motor speed
-    } else if (turningValue > 0){ // Turning right
-        leftMotorSpeed = constrain(forwardSpeed - turningValue, -127, 127);
-        rightMotorSpeed = constrain(forwardSpeed + turningValue, -127, 127);
-    } else{ // not moving
-        leftMotorSpeed = constrain(forwardSpeed, -127, 127);
-        rightMotorSpeed = constrain(forwardSpeed, -127, 127);
+    // Handle the forward and backward motion
+    if (turningValue == 0)
+    {
+        leftMotorSpeed = forwardSpeed;
+        rightMotorSpeed = forwardSpeed;
     }
-
-    if (forwardSpeed > 0) { // going backwards, swap out left and right
-        std::swap(leftMotorSpeed, rightMotorSpeed);
+    else if (turningValue < 0)
+    { // Turning or pivoting left
+        if (forwardSpeed == 0){  // Rotating left
+            leftMotorSpeed = turningValue;   // Negative value
+            rightMotorSpeed = -turningValue; // Positive value
+        }
+        else{ // Pivoting left
+            leftMotorSpeed = 0;
+            rightMotorSpeed = forwardSpeed - turningValue;
+        }
+    }
+    else
+    { // Turning or pivoting right
+        if (forwardSpeed == 0){                                   // Rotating right
+            leftMotorSpeed = -turningValue; // Positive value
+            rightMotorSpeed = turningValue; // Negative value
+        }
+        else{ // Pivoting right
+            rightMotorSpeed = 0;
+            leftMotorSpeed = forwardSpeed + turningValue;
+        }
     }
 
     /*Speed Cap Functions*/
@@ -189,26 +203,26 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
     /* Process the left motor speed */
     if (leftMotorSpeed == 0){
         leftDataPacket |= 0b00 << 0;
-    } else if (leftMotorSpeed < 0) {
+    } else if (leftMotorSpeed > 0) {
         // go forward
         leftDataPacket |= 0b01 << 0;
-        leftMotorSpeed = abs(leftMotorSpeed); // Convert to positive for leftDataPacket.
     } else {
         // go backward
         leftDataPacket |= 0b10 << 0;
+        leftMotorSpeed = abs(leftMotorSpeed); // Convert to positive for leftDataPacket.
     }
     leftDataPacket |= (uint8_t)((leftMotorSpeed / 127.0) * 63) << 2;
 
     /* Process the right motor speed */
     if (rightMotorSpeed == 0){
         rightDataPacket |= 0b00 << 0;
-    } else if (rightMotorSpeed < 0) {
+    } else if (rightMotorSpeed > 0) {
         // go forward
         rightDataPacket |= 0b01 << 0;
-        rightMotorSpeed = abs(rightMotorSpeed); // Convert to positive for rightDataPacket.
     } else {
         // go backward
         rightDataPacket |= 0b10 << 0;
+        rightMotorSpeed = abs(rightMotorSpeed); // Convert to positive for rightDataPacket.
     }
     rightDataPacket |= (uint8_t)((rightMotorSpeed / 127.0) * 63) << 2;
 }
