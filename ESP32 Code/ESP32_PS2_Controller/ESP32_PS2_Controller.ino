@@ -104,17 +104,17 @@ void loop()
         rightDataPacket = 0b00101011;
     }
 
-    /*Play Melody Music */
+    /* Play Main Melody*/
     if (ps2x.NewButtonState(PSB_TRIANGLE)){
-        leftDataPacket = 0x8b;
-        rightDataPacket = 0x8b;
+        leftDataPacket = 0b00101011;
+        rightDataPacket = 0b00101011;
     }
 
     sendPayload(leftDataPacket, rightDataPacket);
+    // delay(100);
 }
 
 
-/*const uint8_t : leftDataPacket and rightDataPacket is sent by value, and unable to be edited within sendPayload*/
 void sendPayload(const uint8_t leftDataPacket, const uint8_t rightDataPacket) {
     uint8_t payload[4];
     payload[0] = 0b00000011;
@@ -136,17 +136,20 @@ void sendPayload(const uint8_t leftDataPacket, const uint8_t rightDataPacket) {
     #endif
 }
 
-void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
+
+void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
+{
     int leftJoystickY = ps2x.Analog(PSS_LY);
     int rightJoystickX = ps2x.Analog(PSS_RX);
 
     #ifdef DEBUG
-    Serial.print(leftJoystickY);
-    Serial.print(",");
-    Serial.println(rightJoystickX);
+        Serial.print("Arcade Drive: ");
+        Serial.print(leftJoystickY);
+        Serial.print(",");
+        Serial.println(rightJoystickX);
     #endif
 
-    int forwardSpeed = 127 - ps2x.Analog(PSS_LY); // Forward/backward value
+    int forwardSpeed = 128 - ps2x.Analog(PSS_LY); // Forward/backward value
     int turningValue = ps2x.Analog(PSS_RX) - 127; // Turning value
 
     int leftMotorSpeed, rightMotorSpeed;
@@ -159,60 +162,87 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
     }
     else if (turningValue < 0)
     { // Turning or pivoting left
-        if (forwardSpeed == 0){  // Rotating left
+        if (forwardSpeed == 0)
+        {                                    // Rotating left
             leftMotorSpeed = turningValue;   // Negative value
             rightMotorSpeed = -turningValue; // Positive value
         }
-        else{ // Pivoting left
+        else
+        { // Pivoting left
             leftMotorSpeed = 0;
-            rightMotorSpeed = forwardSpeed - turningValue;
+            // pivot forward, turning value -ve, forward +ve
+            if (forwardSpeed > 0){
+                rightMotorSpeed = forwardSpeed - turningValue;
+            }
+            // pivot backward, turning value -ve, forward -ve
+            else{
+                rightMotorSpeed = forwardSpeed + turningValue;
+            }
         }
     }
     else
     { // Turning or pivoting right
-        if (forwardSpeed == 0){                                   // Rotating right
-            leftMotorSpeed = -turningValue; // Positive value
-            rightMotorSpeed = turningValue; // Negative value
+        if (forwardSpeed == 0)
+        {                                   // Rotating right
+            leftMotorSpeed = turningValue; // Positive value
+            rightMotorSpeed = -turningValue; // Negative value
         }
-        else{ // Pivoting right
+        else
+        { // Pivoting right
             rightMotorSpeed = 0;
-            leftMotorSpeed = forwardSpeed + turningValue;
+            // pivot forward, turning value +ve, forward +ve
+            if (forwardSpeed > 0){
+                leftMotorSpeed = forwardSpeed + turningValue;
+            }
+            // pivot backward, turnign value +ve, forward -ve
+            else{
+                leftMotorSpeed = forwardSpeed - turningValue;
+            }
         }
     }
 
     /*Speed Cap Functions*/
-    if (ps2x.Button(PSB_L1)){
+    if (ps2x.Button(PSB_L1))
+    {
         #ifdef DEBUG
         Serial.println("L1 pressed, capping left to half speed");
         #endif
         leftMotorSpeed = leftMotorSpeed / 5;
     }
-    if (ps2x.Button(PSB_R1)){
+    if (ps2x.Button(PSB_R1))
+    {
         #ifdef DEBUG
         Serial.println("R1 pressed, capping right to half speed");
         #endif
         rightMotorSpeed = rightMotorSpeed / 5;
     }
-    if (ps2x.Button(PSB_L2)){
+    if (ps2x.Button(PSB_L2))
+    {
         #ifdef DEBUG
         Serial.println("L2 pressed, capping left to speed 1");
         #endif
         leftMotorSpeed = 1;
     }
-    if (ps2x.Button(PSB_R2)){
+    if (ps2x.Button(PSB_R2))
+    {
         #ifdef DEBUG
         Serial.println("R2 pressed, capping right to speed 1");
         #endif
         rightMotorSpeed = 1;
     }
-
+    
     /* Process the left motor speed */
-    if (leftMotorSpeed == 0){
+    if (leftMotorSpeed == 0)
+    {
         leftDataPacket |= 0b00 << 0;
-    } else if (leftMotorSpeed > 0) {
+    }
+    else if (leftMotorSpeed > 0)
+    {
         // go forward
         leftDataPacket |= 0b01 << 0;
-    } else {
+    }
+    else
+    {
         // go backward
         leftDataPacket |= 0b10 << 0;
         leftMotorSpeed = abs(leftMotorSpeed); // Convert to positive for leftDataPacket.
@@ -220,12 +250,17 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
     leftDataPacket |= (uint8_t)((leftMotorSpeed / 127.0) * 63) << 2;
 
     /* Process the right motor speed */
-    if (rightMotorSpeed == 0){
+    if (rightMotorSpeed == 0)
+    {
         rightDataPacket |= 0b00 << 0;
-    } else if (rightMotorSpeed > 0) {
+    }
+    else if (rightMotorSpeed > 0)
+    {
         // go forward
         rightDataPacket |= 0b01 << 0;
-    } else {
+    }
+    else
+    {
         // go backward
         rightDataPacket |= 0b10 << 0;
         rightMotorSpeed = abs(rightMotorSpeed); // Convert to positive for rightDataPacket.
