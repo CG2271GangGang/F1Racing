@@ -85,34 +85,46 @@ void loop()
     uint8_t leftDataPacket = 0;
     uint8_t rightDataPacket = 0;
 
-    ps2x.read_gamepad(false, 0);
+    bool controllerConnected = ps2x.read_gamepad(false, 0);
 
-    /* Switch between arcade and tank drive by pressing circle button */
-    if (ps2x.ButtonPressed(PSB_CIRCLE)) {
-        isArcadeDrive = !isArcadeDrive;
+    // if controller disconnected, send a stop command
+    if(!controllerConnected){
+        Serial.print("Controller Disconnected");
+        leftDataPacket = 0;
+        rightDataPacket = 0;
+        sendPayload(leftDataPacket, rightDataPacket);
+        return;
+    }
+    else{
+          /* Switch between arcade and tank drive by pressing circle button */
+        if (ps2x.ButtonPressed(PSB_CIRCLE)) {
+            isArcadeDrive = !isArcadeDrive;
+        }
+
+        if (isArcadeDrive) {
+            handleArcadeDrive(leftDataPacket, rightDataPacket);
+        } else {
+            handleTankDrive(leftDataPacket, rightDataPacket);
+        }
+
+        /* Play Ending Music */
+        if (ps2x.NewButtonState(PSB_SQUARE)) {
+            leftDataPacket = 0b00101011;
+            rightDataPacket = 0b00101011;
+        }
+
+        /* Play Main Melody*/
+        if (ps2x.NewButtonState(PSB_TRIANGLE)){
+            leftDataPacket = 0x8b;
+            rightDataPacket = 0x8b;
+        }
+
+        sendPayload(leftDataPacket, rightDataPacket);
+        // delay(100);
+        }
     }
 
-    if (isArcadeDrive) {
-        handleArcadeDrive(leftDataPacket, rightDataPacket);
-    } else {
-        handleTankDrive(leftDataPacket, rightDataPacket);
-    }
-
-    /* Play Ending Music */
-    if (ps2x.NewButtonState(PSB_SQUARE)) {
-        leftDataPacket = 0b00101011;
-        rightDataPacket = 0b00101011;
-    }
-
-    /* Play Main Melody*/
-    if (ps2x.NewButtonState(PSB_TRIANGLE)){
-        leftDataPacket = 0b00101011;
-        rightDataPacket = 0b00101011;
-    }
-
-    sendPayload(leftDataPacket, rightDataPacket);
-    // delay(100);
-}
+    
 
 
 void sendPayload(const uint8_t leftDataPacket, const uint8_t rightDataPacket) {
