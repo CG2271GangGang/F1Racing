@@ -58,10 +58,10 @@ int tryNum = 1;
 bool isArcadeDrive = false;  // Start in tank drive mode by default
 
 void setupController() {
-    int error;
+    // int error;
     do {
-        delay(1000);
-        error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble);
+        delay(500);
+        error = ps2x.config_gamepad(PS2_CLK, PS2_CMD, PS2_SEL, PS2_DAT, pressures, rumble); 
         Serial.print("#try config ");
         Serial.println(tryNum++);
     } while (error != 0);
@@ -85,18 +85,14 @@ void loop()
     uint8_t leftDataPacket = 0;
     uint8_t rightDataPacket = 0;
 
-    bool controllerConnected = ps2x.read_gamepad(false, 0);
-
     // if controller disconnected, send a stop command
-    if(!controllerConnected){
+    if(error == 1){
         Serial.print("Controller Disconnected");
-        leftDataPacket = 0;
-        rightDataPacket = 0;
-        sendPayload(leftDataPacket, rightDataPacket);
         return;
     }
     else{
-          /* Switch between arcade and tank drive by pressing circle button */
+        ps2x.read_gamepad(false, 0);
+        /* Switch between arcade and tank drive by pressing circle button */
         if (ps2x.ButtonPressed(PSB_CIRCLE)) {
             isArcadeDrive = !isArcadeDrive;
         }
@@ -118,13 +114,10 @@ void loop()
             leftDataPacket = 0x8b;
             rightDataPacket = 0x8b;
         }
-
+        }
         sendPayload(leftDataPacket, rightDataPacket);
         // delay(100);
-        }
     }
-
-    
 
 
 void sendPayload(const uint8_t leftDataPacket, const uint8_t rightDataPacket) {
@@ -214,32 +207,20 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     }
 
     /*Speed Cap Functions*/
-    if (ps2x.Button(PSB_L1))
-    {
-        #ifdef DEBUG
-        Serial.println("L1 pressed, capping left to half speed");
-        #endif
-        leftMotorSpeed = leftMotorSpeed / 5;
-    }
     if (ps2x.Button(PSB_R1))
     {
         #ifdef DEBUG
-        Serial.println("R1 pressed, capping right to half speed");
+        Serial.println("R1 pressed, capping left & right to half speed");
         #endif
-        rightMotorSpeed = rightMotorSpeed / 5;
+        leftMotorSpeed = leftMotorSpeed / 3;
+        rightMotorSpeed = rightMotorSpeed / 3;
     }
-    if (ps2x.Button(PSB_L2))
+    if (ps2x.Button(PSB_L1))
     {
         #ifdef DEBUG
-        Serial.println("L2 pressed, capping left to speed 1");
+        Serial.println("L1 pressed, capping left & right to speed 1");
         #endif
         leftMotorSpeed = 1;
-    }
-    if (ps2x.Button(PSB_R2))
-    {
-        #ifdef DEBUG
-        Serial.println("R2 pressed, capping right to speed 1");
-        #endif
         rightMotorSpeed = 1;
     }
     
