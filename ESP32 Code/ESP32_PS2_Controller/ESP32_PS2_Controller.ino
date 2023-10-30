@@ -35,7 +35,11 @@
  * DEBUG mode
  * Uncomment to enable debug mode
  */
-#define DEBUG
+//#define DEBUG
+
+#define TURNSCALE 0.5
+#define PIVOTSCALE 1.4
+#define OFFSETSPEED -10
 
 // Create a UART object
 HardwareSerial SerialKL25(0); // UART0 on the ESP32
@@ -169,19 +173,19 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     { // Turning or pivoting left
         if (forwardSpeed == 0)
         {                                    // Rotating left
-            leftMotorSpeed = turningValue;   // Negative value
-            rightMotorSpeed = -turningValue; // Positive value
+            leftMotorSpeed = turningValue * TURNSCALE;   // Negative value
+            rightMotorSpeed = -turningValue * TURNSCALE; // Positive value
         }
         else
         { // Pivoting left
-            leftMotorSpeed = 0;
+            leftMotorSpeed = 0; //-10
             // pivot forward, turning value -ve, forward +ve
             if (forwardSpeed > 0){
-                rightMotorSpeed = forwardSpeed - turningValue;
+                rightMotorSpeed = constrain(forwardSpeed - turningValue * PIVOTSCALE, -127, 127);
             }
             // pivot backward, turning value -ve, forward -ve
             else{
-                rightMotorSpeed = forwardSpeed + turningValue;
+                rightMotorSpeed = constrain(forwardSpeed + turningValue * PIVOTSCALE, -127, 127);
             }
         }
     }
@@ -189,19 +193,19 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     { // Turning or pivoting right
         if (forwardSpeed == 0)
         {                                   // Rotating right
-            leftMotorSpeed = turningValue; // Positive value
-            rightMotorSpeed = -turningValue; // Negative value
+            leftMotorSpeed = constrain(turningValue * TURNSCALE, -127, 127); // Positive value
+            rightMotorSpeed = constrain(-turningValue * TURNSCALE, -127, 127); // Negative value
         }
         else
         { // Pivoting right
-            rightMotorSpeed = 0;
+            rightMotorSpeed = 0; // -10
             // pivot forward, turning value +ve, forward +ve
             if (forwardSpeed > 0){
-                leftMotorSpeed = forwardSpeed + turningValue;
+                leftMotorSpeed = constrain(forwardSpeed + turningValue * PIVOTSCALE, -127, 127);
             }
             // pivot backward, turnign value +ve, forward -ve
             else{
-                leftMotorSpeed = forwardSpeed - turningValue;
+                leftMotorSpeed = constrain(forwardSpeed - turningValue * PIVOTSCALE, -127, 127);
             }
         }
     }
