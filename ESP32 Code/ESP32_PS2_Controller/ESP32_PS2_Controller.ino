@@ -38,8 +38,8 @@
 #define DEBUG
 
 #define TURNSCALE 0.5
-#define PIVOTSCALE 1.4
-#define OFFSETSPEED -5
+#define PIVOTSCALE 4
+#define OFFSETSPEED 0
 
 // Create a UART object
 HardwareSerial SerialKL25(0); // UART0 on the ESP32
@@ -168,24 +168,26 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     int leftMotorSpeed, rightMotorSpeed;
 
     // Handle the forward and backward motion
-    //TODO: introduce deadzone -5 to 5
-    if (inDeadZone(turningValue))
+    // if (inDeadZone(turningValue))
+    if(turningValue == 0)
     {
         leftMotorSpeed = forwardSpeed;
         rightMotorSpeed = forwardSpeed;
     }
-    else if (turningValue < -5)
+    // else if (turningValue < -5)
+    else if(turningValue < 0)
     { // Turning or pivoting left
-        if (inDeadZone(forwardSpeed))
-        {                                    // Rotating left
-            leftMotorSpeed = turningValue * TURNSCALE;   // Negative value
-            rightMotorSpeed = -turningValue * TURNSCALE; // Positive value
+        // if (inDeadZone(forwardSpeed))
+        if(forwardSpeed == 0)
+        {                 // Rotating left
+            leftMotorSpeed = constrain(turningValue * TURNSCALE, -127, 127);   // Negative value
+            rightMotorSpeed = constrain(-turningValue * TURNSCALE, -127, 127); // Positive value
         }
         else
         { // Pivoting left
             // pivot forward, turning value -ve, forward +ve
-            if (forwardSpeed > 5){
-                if(turningValue <= -125){ 
+            if (forwardSpeed > 0){
+                if(turningValue == -127){ 
                     leftMotorSpeed = OFFSETSPEED; //pivot when joystick pushed to the max
                 }
                 else{
@@ -194,8 +196,8 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
                 rightMotorSpeed = constrain(forwardSpeed - turningValue * PIVOTSCALE, -127, 127);
             }
             // pivot backward, turning value -ve, forward -ve
-            else{
-                if (turningValue <= -125)
+            else if(forwardSpeed < 0){
+                if (turningValue == -127)
                 {
                     leftMotorSpeed = -OFFSETSPEED; // pivot when joystick pushed to the max
                 }
@@ -209,17 +211,18 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     }
     else
     { // Turning or pivoting right
-        if (inDeadZone(forwardSpeed))
+        // if (inDeadZone(forwardSpeed))
+        if(forwardSpeed == 0)
         {                                   // Rotating right
             leftMotorSpeed = constrain(turningValue * TURNSCALE, -127, 127); // Positive value
             rightMotorSpeed = constrain(-turningValue * TURNSCALE, -127, 127); // Negative value
+           
         }
         else
         { // Pivoting right
             // pivot forward, turning value +ve, forward +ve
-            if (forwardSpeed > 5){
-                
-                if(turningValue >= 125){
+            if (forwardSpeed > 0){
+                if(turningValue == 127){
                     rightMotorSpeed = OFFSETSPEED; // pivot when joystick pushed to the max
                 }
                 else{
@@ -227,9 +230,9 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
                 }
                 leftMotorSpeed = constrain(forwardSpeed + turningValue * PIVOTSCALE, -127, 127);
             }
-            // pivot backward, turnign value +ve, forward -ve
-            else{
-                if(turningValue >= 125){
+            // pivot backward, turning value +ve, forward -ve
+            else if (forwardSpeed < 0){
+                if(turningValue == 127){
                     rightMotorSpeed = -OFFSETSPEED;
                 }
                 else{
@@ -240,6 +243,16 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
         }
     }
 
+    /*Rotating */
+    if (ps2x.Button(PSB_L2)){ // rotate left at half speed
+        leftMotorSpeed = -127 * TURNSCALE;
+        rightMotorSpeed = 127 * TURNSCALE;
+      }  
+
+    if (ps2x.Button(PSB_R2)){ // rotate left at half speed
+        leftMotorSpeed = 127 * TURNSCALE;
+        rightMotorSpeed = -127 * TURNSCALE;
+    }  
     /*Speed Cap Functions*/
     if (ps2x.Button(PSB_R1))
     {
@@ -259,17 +272,17 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     }
     
     /* Process the left motor speed */
-    if (inDeadZone(leftMotorSpeed))
-    {
-        leftDataPacket |= 0b10 << 0;
-        leftMotorSpeed = 5;
-    }
-    else if (leftMotorSpeed > 5)
+    // if (inDeadZone(leftMotorSpeed))
+    // {
+    //     leftDataPacket |= 0b10 << 0;
+    //     leftMotorSpeed = 1;
+    // }
+    if (leftMotorSpeed > 0)
     {
         // go forward
         leftDataPacket |= 0b01 << 0;
     }
-    else
+    else if(leftMotorSpeed < 0)
     {
         // go backward
         leftDataPacket |= 0b10 << 0;
@@ -278,17 +291,17 @@ void handleArcadeDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket)
     leftDataPacket |= (uint8_t)((leftMotorSpeed / 127.0) * 63) << 2;
 
     /* Process the right motor speed */
-    if (inDeadZone(rightMotorSpeed))
-    {
-        rightDataPacket |= 0b10 << 0;
-        rightMotorSpeed = 5;
-    }
-    else if (rightMotorSpeed > 5)
+    // if (inDeadZone(rightMotorSpeed))
+    // {
+    //     rightDataPacket |= 0b10 << 0;
+    //     rightMotorSpeed = 1;
+    // }
+    if (rightMotorSpeed > 0)
     {
         // go forward
         rightDataPacket |= 0b01 << 0;
     }
-    else
+    else if(rightMotorSpeed < 0)
     {
         // go backward
         rightDataPacket |= 0b10 << 0;
@@ -310,54 +323,55 @@ void handleTankDrive(uint8_t &leftDataPacket, uint8_t &rightDataPacket) {
 
     // Process the left joystick Y value
     if (leftJoystickY == 128){
-    leftDataPacket |= 0b00 << 0; // Set bits 0 and 1 to '00'
+        leftDataPacket |= 0b00 << 0; // Set bits 0 and 1 to '00'
     }else if (leftJoystickY >= 0 && leftJoystickY <= 127){
-    leftDataPacket |= 0b01 << 0; // Set bits 0 and 1 to '01'
+        leftDataPacket |= 0b01 << 0; // Set bits 0 and 1 to '01'
     }else if (leftJoystickY >= 129 && leftJoystickY <= 255){
-    leftDataPacket |= 0b10 << 0; // Set bits 0 and 1 to '10'
+        leftDataPacket |= 0b10 << 0; // Set bits 0 and 1 to '10'
     }
 
     uint8_t leftScaledValue = 0;
     if (leftJoystickY >= 0 && leftJoystickY <= 127){
-    leftScaledValue = (uint8_t)(((128.0 - leftJoystickY) / 128.0) * 63);
+        leftScaledValue = (uint8_t)(((128.0 - leftJoystickY) / 128.0) * 63);
     } else if (leftJoystickY >= 129 && leftJoystickY <= 255){
-    leftScaledValue = (uint8_t)(((leftJoystickY - 128) / 127.0) * 63);
+        leftScaledValue = (uint8_t)(((leftJoystickY - 128) / 127.0) * 63);
     }
-
 
     // Process the right joystick Y value (similar to left joystick)
     if (rightJoystickY == 128){
-    rightDataPacket |= 0b00 << 0;
+        rightDataPacket |= 0b00 << 0;
     } else if (rightJoystickY >= 0 && rightJoystickY <= 127){
-    rightDataPacket |= 0b01 << 0;
+        rightDataPacket |= 0b01 << 0;
     } else if (rightJoystickY >= 129 && rightJoystickY <= 255){
-    rightDataPacket |= 0b10 << 0;
+        rightDataPacket |= 0b10 << 0;
     }
 
     uint8_t rightScaledValue = 0;
     if (rightJoystickY >= 0 && rightJoystickY <= 127){
-    rightScaledValue = (uint8_t)(((128.0 - rightJoystickY) / 128.0) * 63);
+        rightScaledValue = (uint8_t)(((128.0 - rightJoystickY) / 128.0) * 63);
     } else if (rightJoystickY >= 129 && rightJoystickY <= 255) {
-    rightScaledValue = (uint8_t)(((rightJoystickY - 128) / 127.0) * 63);
+        rightScaledValue = (uint8_t)(((rightJoystickY - 128) / 127.0) * 63);
     }
 
-     if (ps2x.Button(PSB_L2)){ // Cap Left Motor speed to minimum moving
-        #ifdef DEBUG
-        Serial.println("L2 pressed, drifting left");
-        #endif
-        leftScaledValue = 1;
-    } else if (ps2x.Button(PSB_L1)){ // Cap speed to half
-    leftScaledValue = leftScaledValue / 3;
+
+    if (ps2x.Button(PSB_L1)){ // Cap speed to half
+        leftScaledValue = leftScaledValue / 3;
+    }
+
+    if (ps2x.Button(PSB_R1)){ // Cap speed to half
+        rightScaledValue = rightScaledValue / 3;
     }
     leftDataPacket |= leftScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the leftDataPacket byte.
-
-    if (ps2x.Button(PSB_R2)){ // Cap Right motor speed to minimum moving
-        #ifdef DEBUG
-        Serial.println("R2 pressed, drifting right");
-        #endif
-        rightScaledValue = 1;
-    } else if (ps2x.Button(PSB_R1)){ // Cap speed to half
-    rightScaledValue = rightScaledValue / 3;
-    }
     rightDataPacket |= rightScaledValue << 2; // 6-bit scaled value is stored in bits 2 to 7 of the rightDataPacket byte.
+
+    // rotating at half the speed
+    if (ps2x.Button(PSB_L2)){ // rotate left
+        leftDataPacket = 0b01010110; // left go back
+        rightDataPacket = 0b01010101; // right go forward
+    } 
+    if (ps2x.Button(PSB_R2)){ // rotate right
+        Serial.print("Rotating right");
+        leftDataPacket = 0b01010101; // left go forward
+        rightDataPacket = 0b01010110; // right go back
+    } 
 }
